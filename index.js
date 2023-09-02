@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 
 const PORT = process.env.PORT || 5000;
-const BOT_FOLDER = process.env.FOLDER;
 const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
 
 function handleRequest(req, res, chunks) {
@@ -24,7 +23,8 @@ function handleRequest(req, res, chunks) {
     try {
         verified = verify_signature();
     } catch (err) {}
-    if (!verified) {
+    // Only check verified push events
+    if (!verified || req.headers['x-github-event'] !== 'push') {
         return res.writeHead(401).end('Unauthorized');
     }
 
@@ -32,7 +32,12 @@ function handleRequest(req, res, chunks) {
         return res.writeHead(200).end('Acknowledged');
     }
 
-    exec(`cd ../${BOT_FOLDER} && git pull && npm ci --omit=dev && cd ${__dirname}`, () => {
+    // We always assume that the repo is already cloned
+    exec(`cd ../${body.repository.name} && git pull && npm ci --omit=dev && cd ${__dirname}`, (err) => {
+        if (err) {
+            console.error(err);
+            return res.writeHead(500).end('Error happened. Probably wrong repository.');
+        }
         res.writeHead(200).end('Pulled and Deployed!');
     });
 }
