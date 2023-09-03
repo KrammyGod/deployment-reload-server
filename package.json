@@ -1,7 +1,7 @@
 {
-  "name": "pingbot-reload-server",
+  "name": "deployment-reload-server",
   "version": "1.0.0",
-  "description": "Server that will receive github webhooks and reload the bot",
+  "description": "Server that will receive github webhooks and reload any cloned local repos",
   "main": "index.js",
   "scripts": {
     "start": "node ."
