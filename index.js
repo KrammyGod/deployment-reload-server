@@ -33,7 +33,8 @@ function handleRequest(req, res, chunks) {
     }
 
     // We always assume that the repo is already cloned
-    exec(`cd ../${body.repository.name} && git pull && npm ci --omit=dev && cd ${__dirname}`, (err) => {
+    // pm2 restart will automatically restart all pm2 environment configurations
+    exec(`cd ../${body.repository.name} && git pull && npm ci --omit=dev && pm2 restart *.config.js && cd ${__dirname}`, (err) => {
         if (err) {
             console.error(err);
             return res.writeHead(500).end('Error happened. Probably wrong repository.');
