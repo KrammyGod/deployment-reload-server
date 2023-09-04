@@ -6,8 +6,28 @@ const { exec } = require('child_process');
 const PORT = process.env.PORT || 5000;
 const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
 
+/**
+ * Attempts to convert given string to JSON, without throwing error.
+ * @param {string} str 
+ * @returns {Record<string, any>}
+ */
+function safeJSONParse(str) {
+    try {
+        return JSON.parse(str);
+    } catch (err) {
+        return {};
+    }
+}
+
+/**
+ * Handles any incoming request to the server, and verifying signature
+ * @param {http.IncomingMessage} req 
+ * @param {http.ServerResponse<http.IncomingMessage> & { req: http.IncomingMessage; }} res 
+ * @param {Uint8Array[]} chunks 
+ * @returns {void}
+ */
 function handleRequest(req, res, chunks) {
-    const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
+    const body = safeJSONParse(Buffer.concat(chunks).toString());
 
     function verify_signature() {
         const signature = crypto
@@ -25,19 +45,23 @@ function handleRequest(req, res, chunks) {
     } catch (err) {}
     // Only check verified push events
     if (!verified || req.headers['x-github-event'] !== 'push') {
-        return res.writeHead(401).end('Unauthorized');
+        res.writeHead(401).end('Unauthorized');
+        return;
     }
 
     if (body.ref !== 'refs/heads/dist') {
-        return res.writeHead(200).end('Acknowledged');
+        res.writeHead(200).end('Acknowledged');
+        return;
     }
 
     // We always assume that the repo is already cloned
-    // pm2 restart will automatically restart all pm2 environment configurations
-    exec(`cd ../${body.repository.name} && git pull && npm ci --omit=dev && pm2 restart *.config.js && cd ${__dirname}`, (err) => {
+    // We stop the pm2 instance to reinstall new dependencies
+    exec(`cd ../${body.repository.name} && pm2 stop *.config.js && git pull &&
+        npm ci --omit=dev && pm2 start *.config.js && cd ${__dirname}`, (err) => {
         if (err) {
             console.error(err);
-            return res.writeHead(500).end('Error happened. Probably wrong repository.');
+            res.writeHead(500).end('Error happened. Probably wrong repository.');
+            return;
         }
         res.writeHead(200).end('Pulled and Deployed!');
     });
