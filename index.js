@@ -49,15 +49,14 @@ function handleRequest(req, res, chunks) {
         return;
     }
 
-    if (body.ref !== 'refs/heads/dist') {
+    if (body.ref !== 'refs/heads/main') {
         res.writeHead(200).end('Acknowledged');
         return;
     }
 
     // We always assume that the repo is already cloned
     // We stop the pm2 instance to reinstall new dependencies
-    exec(`cd ../${body.repository.name} && pm2 stop *.config.js && git pull &&
-        npm ci --omit=dev && pm2 start *.config.js && cd ${__dirname}`, (err) => {
+    exec(`cd ../${body.repository.name} && git pull && npm ci --omit=dev && pm2 start`, (err) => {
         if (err) {
             console.error(err);
             res.writeHead(500).end('Error happened. Probably wrong repository.');
